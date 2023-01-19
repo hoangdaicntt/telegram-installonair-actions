@@ -46,6 +46,23 @@ const sendMessage = (title, telegramToken, telegramUid, message, imageUrl = "") 
 
 }
 
+const getToken = () => {
+    var config = {
+        method: 'get',
+        url: 'https://www.installonair.com/',
+        headers: { }
+    };
+
+    return axios(config)
+        .then(function (response) {
+            console.log(response.data);
+        })
+        .catch(function (error) {
+            console.log(error);
+        });
+
+}
+
 async function main() {
     try {
         // inputs from action
@@ -60,7 +77,8 @@ async function main() {
         const fileForms = core.getInput('fileForms');
         const fileFormsMap = jsonToMap(fileForms);
 
-        console.log(formsMap)
+        console.log(formsMap);
+        await getToken();
 
         // http request to external API
         const response = await uploadFile(url, formsMap, fileFormsMap);

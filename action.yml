@@ -1,13 +1,23 @@
-name: 'Wait'
+name: 'telegram-installonair-actions'
 description: 'Wait a designated number of milliseconds'
 inputs:
-  milliseconds:  # id of input
-    description: 'number of milliseconds to wait'
+  telegramToken:  # id of input
+    required: false
+  telegramUid:  # id of input
+    required: false
+  url:
+    description: 'Web request URL endpoint'
+    required: false
+  method:
+    description: 'Web request method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`)'
     required: true
-    default: '1000'
-outputs:
-  time: # output will be available to future steps
-    description: 'The current time after waiting'
+    default: POST
+  forms:
+    description: Data to be transmitted,such as key, pwd, etc. Use json format
+    required: false
+  fileForms:
+    description: Files to be transferred,such as 'file','image' etc. Use json format
+    required: false
 runs:
   using: 'node16'
   main: 'dist/index.js'

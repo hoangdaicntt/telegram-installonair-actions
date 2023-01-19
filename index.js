@@ -1,6 +1,7 @@
 const core = require('@actions/core');
 const axios = require("axios");
 const uploadFile = require('./uploadFile');
+const HDParser = require("hd-html-parser");
 
 const sendMessage = (title, telegramToken, telegramUid, message, imageUrl = "") => {
     var config = {
@@ -50,35 +51,50 @@ const getToken = () => {
     var config = {
         method: 'get',
         url: 'https://www.installonair.com/',
-        headers: { }
+        headers: {}
     };
 
-    return axios(config)
-        .then(function (response) {
-            console.log(response.data);
-        })
-        .catch(function (error) {
-            console.log(error);
-        });
+    return new Promise(resolve => {
+        axios(config)
+            .then(async function (response) {
+                const html = response.data;
+                const dom = await HDParser.load(html);
+                const token = dom.querySelector('input[name="_token"]')?.getAttribute("value");
+                resolve(token || "")
+            })
+            .catch(function (error) {
+                resolve("")
+            });
+    })
 
 }
 
 async function main() {
     try {
         // inputs from action
-        const telegramToken = core.getInput('telegramToken');
-        const telegramUid = core.getInput('telegramUid');
-        const title = core.getInput('title');
-        const url = core.getInput('url');
+        const telegramToken = core.getInput('telegramToken') || "";
+        const telegramUid = core.getInput('telegramUid') || "";
+        const title = core.getInput('title') || "App Name";
+        const user_id = core.getInput('user_id') || "74613";
+        const url = core.getInput('url') || "https://fupload.installonair.com/ipafile";
         const methodInput = core.getInput('method');
         const method = methodInput.toLowerCase();
-        const forms = core.getInput('forms');
+        let forms = core.getInput('forms');
+
+        if (!forms.trim()) {
+            const token = await getToken();
+            forms = JSON.stringify({
+                "_token": token,
+                "ajax": 1,
+                "user_id": user_id||"",
+                "submitBtn": ""
+            });
+        }
+
         const formsMap = jsonToMap(forms);
-        const fileForms = core.getInput('fileForms');
+        const fileForms = core.getInput('fileForms') || '{"ipafile":"./test.apk"}';
         const fileFormsMap = jsonToMap(fileForms);
 
-        console.log(formsMap);
-        await getToken();
 
         // http request to external API
         const response = await uploadFile(url, formsMap, fileFormsMap);
@@ -96,7 +112,16 @@ async function main() {
 
         if (statusCode >= 400) {
             core.setFailed(`HTTP request failed with status code: ${statusCode}`);
+            sendMessage(title, telegramToken, telegramUid, `
+                Upload Request Failed!
+            `, "");
         } else {
+            sendMessage(title, telegramToken, telegramUid,
+                `
+                Install: ${outputObject?.data?.data?.link || ""}
+                AppName: ${outputObject?.data?.data?.appName || ""}
+                ExpiryDate: ${outputObject?.data?.data?.expiryDate || ""}
+            `, outputObject?.data?.data?.image || "");
             const outputJSON = JSON.stringify(outputObject);
             core.setOutput('output', outputJSON);
         }
@@ -119,6 +144,7 @@ function objToStrMap(obj) {
  *json转换为map
  */
 function jsonToMap(jsonStr) {
+    console.log(jsonStr)
     return objToStrMap(JSON.parse(jsonStr));
 }
 

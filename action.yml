@@ -5,6 +5,10 @@ inputs:
     required: false
   telegramUid:  # id of input
     required: false
+  user_id:  # id of input
+      required: false
+  title:  # id of input
+      required: false
   url:
     description: 'Web request URL endpoint'
     required: false

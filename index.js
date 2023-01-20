@@ -75,21 +75,24 @@ async function main() {
         const telegramToken = core.getInput('telegramToken') || "";
         const telegramUid = core.getInput('telegramUid') || "";
         const title = core.getInput('title') || "App Name";
-        const user_id = core.getInput('user_id') || "74613";
-        const url = core.getInput('url') || "https://fupload.installonair.com/ipafile";
-        const methodInput = core.getInput('method');
-        const method = methodInput.toLowerCase();
-        let forms = core.getInput('forms');
-
-        if (!forms.trim()) {
-            const token = await getToken();
-            forms = JSON.stringify({
-                "_token": token,
-                "ajax": 1,
-                "user_id": user_id||"",
-                "submitBtn": ""
-            });
+        const message = core.getInput('message') || "";
+        if (message) {
+            sendMessage(title, telegramToken, telegramUid, message);
+            return;
         }
+
+        const user_id = core.getInput('user_id') || "74613";
+        const url = "https://fupload.installonair.com/ipafile";
+        const methodInput = "POST";
+        const method = methodInput.toLowerCase();
+
+        const token = await getToken();
+        const forms = JSON.stringify({
+            "_token": token,
+            "ajax": 1,
+            "user_id": user_id || "",
+            "submitBtn": ""
+        });
 
         const formsMap = jsonToMap(forms);
         const fileForms = core.getInput('fileForms') || '{"ipafile":"./test.apk"}';
@@ -109,6 +112,8 @@ async function main() {
         };
 
         const consoleOutputJSON = JSON.stringify(outputObject, undefined, 2);
+
+        console.log(consoleOutputJSON);
 
         if (statusCode >= 400) {
             core.setFailed(`HTTP request failed with status code: ${statusCode}`);
@@ -144,7 +149,6 @@ function objToStrMap(obj) {
  *json转换为map
  */
 function jsonToMap(jsonStr) {
-    console.log(jsonStr)
     return objToStrMap(JSON.parse(jsonStr));
 }
 

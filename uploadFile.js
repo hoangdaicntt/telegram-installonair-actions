@@ -12,7 +12,6 @@ function buildForm(forms, fileForms) {
     for (const [key, value] of fileForms) {
         form.append(key, fs.createReadStream(value));
     }
-    console.log(form);
 
     return form
 }
@@ -27,12 +26,8 @@ async function getFormHeaders (form) {
 }
 
 async function uploadFile(url, forms, fileForms) {
-    console.log(url);
-    console.log(forms);
-    console.log(fileForms);
     const form = buildForm(forms, fileForms);
     const headers = await getFormHeaders(form);
-    console.log(headers);
     return axios.post(url, form, {headers: headers,maxContentLength: Infinity})
 }
 

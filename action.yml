@@ -33,5 +33,5 @@ outputs:
   output:
     description: 'Upload result with status code and response data'
 runs:
-  using: 'node22'
+  using: 'node20'
   main: 'dist/index.js'

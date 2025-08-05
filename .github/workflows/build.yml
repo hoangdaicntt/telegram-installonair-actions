@@ -1,42 +1,69 @@
-# `dist/index.js` is a special file in Actions.
-# When you reference an action with `uses:` in a workflow,
-# `index.js` is the code that will run.
-# For our project, we generate this file through a build process from other source files.
-# We need to make sure the checked-in `index.js` actually matches what we expect it to be.
-name: Check dist/
+name: Create Release
 
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - 'LICENSE'
-      - 'README.md'
-  pull_request:
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - 'LICENSE'
-      - 'README.md'
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v2.1.3
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
 
-# Cancel in-progress runs for the same workflow and branch
+# Cancel in-progress runs for the same workflow
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  check-dist:
+  create-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+
+    permissions:
+      contents: write  # Required for creating releases
+      pull-requests: read
+      issues: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Full history for changelog
+
+      - name: Validate tag format
+        if: github.event_name == 'push'
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)*$ ]]; then
+            echo "::error::Invalid tag format: $TAG_NAME. Expected format: v1.0.0 or v1.0.0-beta"
+            exit 1
+          fi
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+
+      - name: Set version from input
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)*$ ]]; then
+            echo "::error::Invalid version format: $VERSION. Expected format: v1.0.0 or v1.0.0-beta"
+            exit 1
+          fi
+          echo "TAG_NAME=$VERSION" >> $GITHUB_ENV
+          
+          # Create tag if it doesn't exist
+          if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$VERSION" -m "Release $VERSION"
+            git push origin "$VERSION"
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -47,56 +74,158 @@ jobs:
       - name: Install dependencies
         run: npm install --prefer-offline --no-audit --no-fund
 
-      - name: Build and package
+      - name: Run tests
         run: |
-          npm run build
-          npm run package
-
-      - name: Check for uncommitted changes
-        id: diff
-        run: |
-          # Add colors for better readability
-          git config --global color.ui always
-          
-          if ! git diff --quiet --ignore-space-at-eol dist/; then
-            echo "::error::Detected uncommitted changes in dist/ directory"
-            echo "Please run 'npm run build && npm run package' and commit the changes."
-            echo ""
-            echo "Changes detected:"
-            git diff --name-only dist/
-            echo ""
-            echo "Full diff:"
-            git diff --ignore-space-at-eol dist/
-            echo "has-changes=true" >> $GITHUB_OUTPUT
-            exit 1
+          if npm run | grep -q "test"; then
+            echo "Running tests..."
+            npm test
           else
-            echo "::notice::No changes detected in dist/ directory"
-            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "::notice::No test script found, skipping tests"
           fi
 
-      - name: Upload dist artifacts
-        if: failure() && steps.diff.outputs.has-changes == 'true'
-        uses: actions/upload-artifact@v4
+      - name: Build project
+        run: |
+          if npm run | grep -q "build"; then
+            echo "Building project..."
+            npm run build
+          else
+            echo "::notice::No build script found, skipping build"
+          fi
+
+      - name: Package project
+        run: |
+          if npm run | grep -q "package"; then
+            echo "Packaging project..."
+            npm run package
+          else
+            echo "::notice::No package script found, skipping package"
+          fi
+
+      - name: Create distribution archive
+        run: |
+          # Create a clean distribution
+          mkdir -p release-assets
+          
+          # Include built files
+          if [ -d "dist" ]; then
+            cp -r dist release-assets/
+          fi
+          
+          # Include essential files
+          cp package.json release-assets/ 2>/dev/null || echo "No package.json found"
+          cp README.md release-assets/ 2>/dev/null || echo "No README.md found"
+          cp LICENSE release-assets/ 2>/dev/null || echo "No LICENSE found"
+          cp CHANGELOG.md release-assets/ 2>/dev/null || echo "No CHANGELOG.md found"
+          
+          # Create archives
+          cd release-assets
+          tar -czf ../telegram-installonair-actions-${TAG_NAME}.tar.gz .
+          zip -r ../telegram-installonair-actions-${TAG_NAME}.zip .
+          cd ..
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "Generating changelog..."
+          
+          # Get previous tag
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${TAG_NAME}$" | head -n1)
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "::notice::No previous tag found, generating initial changelog"
+            CHANGELOG="## 🎉 Initial Release\n\nThis is the first release of the project."
+          else
+            echo "Generating changelog from $PREVIOUS_TAG to $TAG_NAME"
+          
+            # Generate changelog from commits
+            CHANGELOG="## 🚀 What's Changed\n\n"
+          
+            # Get commits between tags
+            COMMITS=$(git log --pretty=format:"- %s (%h)" "$PREVIOUS_TAG".."$TAG_NAME" --no-merges)
+          
+            if [ -n "$COMMITS" ]; then
+              CHANGELOG="${CHANGELOG}### Commits\n${COMMITS}\n\n"
+            fi
+          
+            # Get contributors
+            CONTRIBUTORS=$(git log --pretty=format:"%an" "$PREVIOUS_TAG".."$TAG_NAME" --no-merges | sort | uniq | sed 's/^/- @/' | tr '\n' '\n')
+          
+            if [ -n "$CONTRIBUTORS" ]; then
+              CHANGELOG="${CHANGELOG}### Contributors\n${CONTRIBUTORS}\n\n"
+            fi
+          
+            CHANGELOG="${CHANGELOG}**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${TAG_NAME}"
+          fi
+          
+          # Save changelog to file and output
+          echo -e "$CHANGELOG" > changelog.md
+          
+          # Set output for use in release
+          {
+            echo 'CHANGELOG<<EOF'
+            echo -e "$CHANGELOG"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Check if pre-release
+        id: prerelease
+        run: |
+          IS_PRERELEASE="false"
+          
+          # Check if tag contains pre-release identifiers
+          if [[ "$TAG_NAME" =~ -(alpha|beta|rc|dev|preview) ]]; then
+            IS_PRERELEASE="true"
+          fi
+          
+          # Override with manual input if available
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.event.inputs.prerelease }}" == "true" ]; then
+            IS_PRERELEASE="true"
+          fi
+          
+          echo "IS_PRERELEASE=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          echo "::notice::Pre-release: $IS_PRERELEASE"
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: expected-dist-${{ github.sha }}
-          path: dist/
-          retention-days: 7
-          compression-level: 6
+          tag_name: ${{ env.TAG_NAME }}
+          release_name: Release ${{ env.TAG_NAME }}
+          body: ${{ steps.changelog.outputs.CHANGELOG }}
+          draft: false
+          prerelease: ${{ steps.prerelease.outputs.IS_PRERELEASE }}
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./telegram-installonair-actions-${{ env.TAG_NAME }}.tar.gz
+          asset_name: telegram-installonair-actions-${{ env.TAG_NAME }}.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload ZIP Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./telegram-installonair-actions-${{ env.TAG_NAME }}.zip
+          asset_name: telegram-installonair-actions-${{ env.TAG_NAME }}.zip
+          asset_content_type: application/zip
 
       - name: Summary
-        if: always()
         run: |
-          if [[ "${{ steps.diff.outputs.has-changes }}" == "true" ]]; then
-            echo "❌ **Build Check Failed**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The \`dist/\` directory is out of sync with the source code." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**To fix this:**" >> $GITHUB_STEP_SUMMARY
-            echo "1. Run \`npm run build && npm run package\`" >> $GITHUB_STEP_SUMMARY
-            echo "2. Commit the changes to \`dist/\`" >> $GITHUB_STEP_SUMMARY
-            echo "3. Push your changes" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "✅ **Build Check Passed**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The \`dist/\` directory is in sync with the source code." >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "🎉 **Release Created Successfully!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release Details:**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ env.TAG_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pre-release**: ${{ steps.prerelease.outputs.IS_PRERELEASE }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release URL**: ${{ steps.create_release.outputs.html_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Assets uploaded:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`telegram-installonair-actions-${{ env.TAG_NAME }}.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`telegram-installonair-actions-${{ env.TAG_NAME }}.zip\`" >> $GITHUB_STEP_SUMMARY

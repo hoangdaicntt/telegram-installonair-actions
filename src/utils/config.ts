@@ -19,17 +19,18 @@ export class ActionConfig {
     constructor() {
         // Get values from environment variables (local) or GitHub Actions inputs
         this.method = this.getInput('method') || 'installonair-build';
-        this.filePath = this.getInput('file-path') || '';
-        this.messageTitle = this.getInput('message-title') || 'Build Notification';
-        this.telegramToken = this.getInput('telegram-token') || '';
-        this.telegramUid = this.getInput('telegram-uid') || '';
-        this.installonairUserId = this.getInput('installonair-user-id') || '';
-        this.loadlyIoToken = this.getInput('loadlyio-token') || '';
+        this.filePath = this.getInput('filePath') || '';
+        this.messageTitle = this.getInput('messageTitle') || 'App Build';
+        this.telegramToken = this.getInput('telegramToken') || '';
+        this.telegramUid = this.getInput('telegramUid') || '';
+        this.installonairUserId = this.getInput('installonairUserId') || '74613';
+        this.loadlyIoToken = this.getInput('loadlyIoToken') || '';
     }
 
     private getInput(name: string): string {
         // Try to get from environment variables first (for local testing)
-        const envName = name.toUpperCase().replace(/-/g, '_');
+        // Convert camelCase to UPPER_SNAKE_CASE for environment variables
+        const envName = name.toUpperCase();
         const envValue = process.env[envName];
 
         if (envValue) {
@@ -56,19 +57,19 @@ export class ActionConfig {
         }
 
         if (!this.filePath) {
-            errors.push('file-path is required');
+            errors.push('filePath is required');
         }
 
         if (this.method === 'send-only' && !this.hasValidTelegramConfig()) {
-            errors.push('telegram-token and telegram-uid are required for send-only method');
+            errors.push('telegramToken and telegramUid are required for send-only method');
         }
 
         if ((this.method === 'installonair-build' || this.method === 'all') && !this.installonairUserId) {
-            errors.push('installonair-user-id is required for installonair-build method');
+            errors.push('installonairUserId is required for installonair-build method');
         }
 
         if ((this.method === 'loadlyio-build' || this.method === 'all') && !this.loadlyIoToken) {
-            errors.push('loadlyio-token is required for loadlyio-build method');
+            errors.push('loadlyIoToken is required for loadlyio-build method');
         }
 
         return errors;

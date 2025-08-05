@@ -25,32 +25,22 @@ export class InstallOnAirService {
         fileForms: FileFormDataMap,
         uploadService: UploadService
     ): Promise<InstallOnAirUploadResult> {
-        try {
-            const response = await uploadService.upload(url, forms, fileForms);
-            return {
-                success: true,
-                statusCode: response.status,
-                data: response.data
-            };
-        } catch (error: any) {
-            console.error('Upload failed:', error.message);
-            return {
-                success: false,
-                statusCode: error.response?.status || 500,
-                error: error.message
-            };
-        }
+        const response = await uploadService.upload(url, forms, fileForms);
+        return {
+            success: response.status === 200,
+            statusCode: response.status,
+            data: response.data
+        };
     }
 
-    formatSuccessMessage(data: InstallOnAirResponse): string {
-        const appData = data?.data?.data || {};
+    formatSuccessMessage(data: any): string {
         return `
-Install: ${appData.link || ''}
-AppName: ${appData.appName || ''}
-ExpiryDate: ${appData.expiryDate || ''}`;
+Install: ${data?.data?.link || ''}
+AppName: ${data?.data?.appName || ''}
+ExpiryDate: ${data?.data?.expiryDate || ''}`;
     }
 
-    getImageUrl(data: InstallOnAirResponse): string {
-        return data?.data?.data?.image || '';
+    getImageUrl(data: any): string {
+        return data?.data?.image || '';
     }
 }

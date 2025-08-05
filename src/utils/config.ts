@@ -1,56 +1,88 @@
 import * as core from '@actions/core';
-import {ActionMethod} from '../types';
+import * as dotenv from 'dotenv';
+import {ActionMethod} from "../types";
+
+// Load .env file when running locally
+if (process.env.NODE_ENV !== 'production') {
+    dotenv.config();
+}
 
 export class ActionConfig {
+    public readonly method: string | ActionMethod;
+    public readonly filePath: string;
+    public readonly messageTitle: string;
     public readonly telegramToken: string;
     public readonly telegramUid: string;
-    public readonly messageTitle: string;
     public readonly installonairUserId: string;
     public readonly loadlyIoToken: string;
-    public readonly filePath: string;
-    public readonly method: ActionMethod;
 
     constructor() {
-        this.telegramToken = core.getInput('telegramToken') || '';
-        this.telegramUid = core.getInput('telegramUid') || '';
-        this.messageTitle = core.getInput('messageTitle') || 'App Build';
-        this.installonairUserId = core.getInput('installonairUserId') || '74613';
-        this.loadlyIoToken = core.getInput('loadlyIoToken') || '';
-        this.filePath = core.getInput('filePath') || '';
-        this.method = (core.getInput('method') || 'installonair-build') as ActionMethod;
+        // Get values from environment variables (local) or GitHub Actions inputs
+        this.method = this.getInput('method') || 'installonair-build';
+        this.filePath = this.getInput('file-path') || '';
+        this.messageTitle = this.getInput('message-title') || 'Build Notification';
+        this.telegramToken = this.getInput('telegram-token') || '';
+        this.telegramUid = this.getInput('telegram-uid') || '';
+        this.installonairUserId = this.getInput('installonair-user-id') || '';
+        this.loadlyIoToken = this.getInput('loadlyio-token') || '';
     }
 
-    validate(): string[] {
+    private getInput(name: string): string {
+        // Try to get from environment variables first (for local testing)
+        const envName = name.toUpperCase().replace(/-/g, '_');
+        const envValue = process.env[envName];
+
+        if (envValue) {
+            return envValue;
+        }
+
+        // Fallback to GitHub Actions core.getInput
+        try {
+            return core.getInput(name);
+        } catch {
+            return '';
+        }
+    }
+
+    public validate(): string[] {
         const errors: string[] = [];
 
-        // if (!this.filePath) {
-        //     errors.push('filePath is required');
-        // }
-        //
-        // if (!['send-only', 'installonair-build', 'loadlyio-build', 'all'].includes(this.method)) {
-        //     errors.push('method must be one of: "send-only", "installonair-build", "loadlyio-build", "all"');
-        // }
-        //
-        // if (this.method === 'send-only' && !this.hasValidTelegramConfig()) {
-        //     errors.push('Telegram credentials are required for "send-only" method');
-        // }
-        //
-        // if (['installonair-build', 'loadlyio-build', 'all'].includes(this.method) && !this.telegramToken && !this.telegramUid) {
-        //     console.warn('Telegram credentials not provided - notifications will be skipped');
-        // }
+        if (!this.method) {
+            errors.push('method is required');
+        }
+
+        if (!['send-only', 'installonair-build', 'loadlyio-build', 'all'].includes(this.method)) {
+            errors.push('method must be one of: send-only, installonair-build, loadlyio-build, all');
+        }
+
+        if (!this.filePath) {
+            errors.push('file-path is required');
+        }
+
+        if (this.method === 'send-only' && !this.hasValidTelegramConfig()) {
+            errors.push('telegram-token and telegram-uid are required for send-only method');
+        }
+
+        if ((this.method === 'installonair-build' || this.method === 'all') && !this.installonairUserId) {
+            errors.push('installonair-user-id is required for installonair-build method');
+        }
+
+        if ((this.method === 'loadlyio-build' || this.method === 'all') && !this.loadlyIoToken) {
+            errors.push('loadlyio-token is required for loadlyio-build method');
+        }
 
         return errors;
     }
 
-    hasValidTelegramConfig(): boolean {
+    public hasValidTelegramConfig(): boolean {
         return !!(this.telegramToken && this.telegramUid);
     }
 
-    getInstallOnAirUrl(): string {
+    public getInstallOnAirUrl(): string {
         return 'https://fupload.installonair.com/ipafile';
     }
 
-    getLoadlyIOUrl(): string {
-        return 'https://api.loadly.io/apiv2/app/upload';
+    public getLoadlyIOUrl(): string {
+        return 'https://api.loadly.io/upload';
     }
 }

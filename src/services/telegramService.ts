@@ -1,5 +1,5 @@
-import axios, { AxiosResponse } from 'axios';
-import { TelegramConfig } from '../types';
+import axios, {AxiosResponse} from 'axios';
+import {TelegramConfig} from '../types';
 
 export class TelegramService {
     private readonly token: string;
@@ -12,18 +12,13 @@ export class TelegramService {
         this.baseUrl = `https://api.telegram.org/bot${token}`;
     }
 
-    async sendMessage(title: string, message: string, imageUrl: string = ''): Promise<void> {
+    async sendMessage(title: string, message: string, imageUrl: string = ''): Promise<AxiosResponse> {
         const text = this.formatMessage(title, message);
 
-        try {
-            if (imageUrl) {
-                await this.sendPhoto(text, imageUrl);
-            } else {
-                await this.sendTextMessage(text);
-            }
-            console.log('Telegram message sent successfully');
-        } catch (error) {
-            console.error('Failed to send Telegram message:', (error as Error).message);
+        if (imageUrl) {
+            return await this.sendPhoto(text, imageUrl);
+        } else {
+            return await this.sendTextMessage(text);
         }
     }
 
@@ -36,7 +31,7 @@ export class TelegramService {
             headers: {
                 'Content-Type': 'application/json'
             }
-        });
+        }).catch(reason => reason.response);
     }
 
     private async sendPhoto(caption: string, photoUrl: string): Promise<AxiosResponse> {
@@ -48,7 +43,7 @@ export class TelegramService {
             headers: {
                 'Content-Type': 'application/json'
             }
-        });
+        }).catch(reason => reason.response);
     }
 
     private formatMessage(title: string, message: string): string {

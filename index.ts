@@ -74,14 +74,14 @@ Type: ${fileType.toUpperCase()}
 Path: ${config.filePath}
 Status: Ready for distribution`;
 
-    await telegramService.sendMessage(config.messageTitle, message);
+    const result = await telegramService.sendMessage(config.messageTitle, message);
 
     const outputObject = createOutputObject(
         config.method,
         undefined,
-        200,
+        result.status,
         {fileName, fileType, filePath: config.filePath},
-        'Telegram notification sent successfully'
+        result?.status === 200 ? 'Telegram notification sent successfully' : 'Failed to send Telegram notification',
     );
 
     const outputJSON = JSON.stringify(outputObject);

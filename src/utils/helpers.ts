@@ -1,4 +1,4 @@
-import { FormDataMap, ActionOutput, ActionMethod } from '../types';
+import {FormDataMap, ActionOutput, ActionMethod} from '../types';
 import * as path from 'path';
 
 /**
@@ -19,7 +19,6 @@ function objToStrMap(obj: Record<string, string>): Map<string, string> {
  * Convert JSON string to Map
  */
 export function jsonToMap(jsonStr: string): FormDataMap {
-    console.log('Converting JSON to Map:', jsonStr);
     try {
         return objToStrMap(JSON.parse(jsonStr));
     } catch (error) {
@@ -45,7 +44,7 @@ export function createDefaultForms(token: string, userId: string): string {
  */
 export function createFileFormsFromPath(filePath: string): FormDataMap {
     const fileExtension = path.extname(filePath).toLowerCase();
-    const fieldName = fileExtension === '.apk' ? 'apkfile' : 'ipafile';
+    const fieldName = 'ipafile';
 
     const fileFormsJson = JSON.stringify({
         [fieldName]: filePath
@@ -68,7 +67,7 @@ export function createLoadlyIOFileFormsFromPath(filePath: string): FormDataMap {
 /**
  * Create output object for action result
  */
-export function createOutputObject(method: ActionMethod, url?: string, statusCode?: number, data?: any, message?: string): ActionOutput {
+export function createOutputObject(method: any, url?: string, statusCode?: number, data?: any, message?: string): ActionOutput {
     return {
         method,
         url,

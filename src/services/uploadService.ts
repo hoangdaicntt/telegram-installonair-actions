@@ -8,19 +8,12 @@ export class UploadService {
     private readonly maxContentLength: number = Infinity;
 
     async upload(url: string, forms: FormDataMap, fileForms: FileFormDataMap): Promise<AxiosResponse> {
-        console.log('Upload URL:', url);
-        console.log('Forms:', forms);
-        console.log('File Forms:', fileForms);
-
         const form = this.buildForm(forms, fileForms);
         const headers = await this.getFormHeaders(form);
-
-        console.log('Headers:', headers);
-
         return axios.post(url, form, {
             headers: headers,
             maxContentLength: this.maxContentLength
-        });
+        }).catch(reason => reason.response);
     }
 
     private buildForm(forms: FormDataMap, fileForms: FileFormDataMap): FormData {
@@ -35,8 +28,6 @@ export class UploadService {
         for (const [key, value] of fileForms) {
             form.append(key, fs.createReadStream(value));
         }
-
-        console.log('Form data created');
         return form;
     }
 

@@ -53,8 +53,4 @@ export class ActionConfig {
     getLoadlyIOUrl(): string {
         return 'https://api.loadly.io/apiv2/app/upload';
     }
-
-    getLoadlyIOApiKey(): string {
-        return this.loadlyIoToken;
-    }
 }

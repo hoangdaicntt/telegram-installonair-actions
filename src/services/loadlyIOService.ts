@@ -3,22 +3,16 @@ import {UploadService} from './uploadService';
 
 export class LoadlyIOService {
     private readonly baseUrl: string = 'https://api.loadly.io/apiv2/app/upload';
-    private apiKey: string = "";
-
-    constructor(apiKey: string) {
-        if (apiKey) {
-            this.apiKey = apiKey;
-        }
-    }
 
     async uploadFile(
         fileForms: FileFormDataMap,
-        uploadService: UploadService
+        uploadService: UploadService,
+        apiKey: string
     ): Promise<LoadlyIOUploadResult> {
         try {
             // Create forms with API key
             const forms = new Map<string, string>();
-            forms.set('_api_key', this.apiKey);
+            forms.set('_api_key', apiKey);
 
             const response = await uploadService.upload(this.baseUrl, forms, fileForms);
             return {

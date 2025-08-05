@@ -149,14 +149,14 @@ Error: ${uploadResult.error || 'Unknown error'}`;
 
 async function handleLoadlyIOBuildMode(config: ActionConfig, telegramService: TelegramService | null): Promise<void> {
     // Initialize services
-    const loadlyIOService = new LoadlyIOService(config.getLoadlyIOApiKey());
+    const loadlyIOService = new LoadlyIOService();
     const uploadService = new UploadService();
 
     // Prepare file forms data for LoadlyIO
     const fileFormsMap = createLoadlyIOFileFormsFromPath(config.filePath);
 
     // Upload file to LoadlyIO
-    const uploadResult = await loadlyIOService.uploadFile(fileFormsMap, uploadService);
+    const uploadResult = await loadlyIOService.uploadFile(fileFormsMap, uploadService, config.loadlyIoToken);
 
     // Create output object
     const outputObject = createOutputObject(
@@ -240,11 +240,11 @@ async function handleAllMode(config: ActionConfig, telegramService: TelegramServ
     try {
         // Upload to LoadlyIO
         console.log('Uploading to LoadlyIO...');
-        const loadlyIOService = new LoadlyIOService(config.getLoadlyIOApiKey());
+        const loadlyIOService = new LoadlyIOService();
         const uploadService2 = new UploadService();
 
         const loadlyIOFileFormsMap = createLoadlyIOFileFormsFromPath(config.filePath);
-        const loadlyIOResult = await loadlyIOService.uploadFile(loadlyIOFileFormsMap, uploadService2);
+        const loadlyIOResult = await loadlyIOService.uploadFile(loadlyIOFileFormsMap, uploadService2, config.loadlyIoToken);
 
         results.push({
             service: 'LoadlyIO',
@@ -281,7 +281,7 @@ File: ${config.filePath.split('/').pop()}
             summaryMessage += installOnAirService.formatSuccessMessage(result.data) + '\n';
         }
         if (result.success && result.service === 'LoadlyIO') {
-            const loadlyIOService = new LoadlyIOService(config.getLoadlyIOApiKey());
+            const loadlyIOService = new LoadlyIOService();
             summaryMessage += loadlyIOService.formatSuccessMessage(result.data) + '\n';
         }
         if (!result.success) {

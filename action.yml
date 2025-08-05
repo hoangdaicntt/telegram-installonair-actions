@@ -1,5 +1,8 @@
 name: 'telegram-installonair-actions'
 description: 'TypeScript GitHub Action for uploading files to InstallOnAir/LoadlyIO with Telegram notifications'
+color: 'green'
+icon: 'arrow-up-circle'
+
 inputs:
   telegramToken:
     description: 'Telegram bot token for notifications'
@@ -29,5 +32,5 @@ outputs:
   output:
     description: 'Upload result with status code and response data'
 runs:
-  using: 'node16'
+  using: 'node22'
   main: 'dist/index.js'

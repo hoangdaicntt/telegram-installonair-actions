@@ -1,6 +1,6 @@
 {
   "name": "telegram-installonair-actions",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "GitHub Action for uploading files to InstallOnAir/LoadlyIO and sending Telegram notifications",
   "main": "dist/index.js",
   "scripts": {

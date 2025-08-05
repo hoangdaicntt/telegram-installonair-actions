@@ -11,41 +11,92 @@ on:
       - main
     paths-ignore:
       - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+      - 'README.md'
   pull_request:
     paths-ignore:
       - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+      - 'README.md'
   workflow_dispatch:
+
+# Cancel in-progress runs for the same workflow and branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check-dist:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Set Node.js 22.x
-        uses: actions/setup-node@v3.5.1
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          node-version: 22.x
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit --no-fund
 
-      - name: Rebuild the dist/ directory
-        run: npm run build && npm run package
-
-      - name: Compare the expected and actual dist/ directories
+      - name: Build and package
         run: |
-          if [ "$(git diff --ignore-space-at-eol dist/ | wc -l)" -gt "0" ]; then
-            echo "Detected uncommitted changes after build.  See status below:"
-            git diff
-            exit 1
-          fi
-        id: diff
+          npm run build
+          npm run package
 
-      # If index.js was different than expected, upload the expected version as an artifact
-      - uses: actions/upload-artifact@v3
-        if: ${{ failure() && steps.diff.conclusion == 'failure' }}
+      - name: Check for uncommitted changes
+        id: diff
+        run: |
+          # Add colors for better readability
+          git config --global color.ui always
+          
+          if ! git diff --quiet --ignore-space-at-eol dist/; then
+            echo "::error::Detected uncommitted changes in dist/ directory"
+            echo "Please run 'npm run build && npm run package' and commit the changes."
+            echo ""
+            echo "Changes detected:"
+            git diff --name-only dist/
+            echo ""
+            echo "Full diff:"
+            git diff --ignore-space-at-eol dist/
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "::notice::No changes detected in dist/ directory"
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload dist artifacts
+        if: failure() && steps.diff.outputs.has-changes == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: expected-dist-${{ github.sha }}
           path: dist/
+          retention-days: 7
+          compression-level: 6
+
+      - name: Summary
+        if: always()
+        run: |
+          if [[ "${{ steps.diff.outputs.has-changes }}" == "true" ]]; then
+            echo "❌ **Build Check Failed**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The \`dist/\` directory is out of sync with the source code." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**To fix this:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Run \`npm run build && npm run package\`" >> $GITHUB_STEP_SUMMARY
+            echo "2. Commit the changes to \`dist/\`" >> $GITHUB_STEP_SUMMARY
+            echo "3. Push your changes" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **Build Check Passed**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The \`dist/\` directory is in sync with the source code." >> $GITHUB_STEP_SUMMARY
+          fi

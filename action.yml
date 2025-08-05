@@ -1,27 +1,33 @@
 name: 'telegram-installonair-actions'
-description: 'Wait a designated number of milliseconds'
+description: 'TypeScript GitHub Action for uploading files to InstallOnAir/LoadlyIO with Telegram notifications'
 inputs:
-  telegramToken:  # id of input
+  telegramToken:
+    description: 'Telegram bot token for notifications'
     required: false
-  telegramUid:  # id of input
+  telegramUid:
+    description: 'Telegram chat ID for notifications'
     required: false
-  user_id:  # id of input
-      required: false
-  title:  # id of input
-      required: false
-  url:
-    description: 'Web request URL endpoint'
+  messageTitle:
+    description: 'Title for notifications'
     required: false
-  method:
-    description: 'Web request method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`)'
+    default: 'App Build'
+  installonairUserId:
+    description: 'InstallOnAir user ID'
+    required: false
+    default: '74613'
+  loadlyIoToken:
+    description: 'LoadlyIO API token'
+    required: false
+  filePath:
+    description: 'Path to the file to upload (APK/IPA)'
     required: true
-    default: POST
-  forms:
-    description: Data to be transmitted,such as key, pwd, etc. Use json format
-    required: false
-  fileForms:
-    description: Files to be transferred,such as 'file','image' etc. Use json format
-    required: false
+  method:
+    description: 'Action method: "send-only" | "installonair-build" | "loadlyio-build" | "all"'
+    required: true
+    default: 'installonair-build'
+outputs:
+  output:
+    description: 'Upload result with status code and response data'
 runs:
   using: 'node16'
   main: 'dist/index.js'

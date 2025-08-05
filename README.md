@@ -1,116 +1,195 @@
-# Create a JavaScript Action
+# Telegram InstallOnAir & LoadlyIO Actions (TypeScript)
 
-<p align="center">
-  <a href="https://github.com/actions/javascript-action/actions"><img alt="javscript-action status" src="https://github.com/actions/javascript-action/workflows/units-test/badge.svg"></a>
-</p>
+A GitHub Action built with TypeScript that uploads files to InstallOnAir/LoadlyIO and sends notifications via Telegram.
 
-Use this template to bootstrap the creation of a JavaScript action.:rocket:
+## Features
 
-This template includes tests, linting, a validation workflow, publishing, and versioning guidance.
-
-If you are new, there's also a simpler introduction.  See the [Hello World JavaScript Action](https://github.com/actions/hello-world-javascript-action)
-
-## Create an action from this template
-
-Click the `Use this Template` and provide the new repo details for your action
-
-## Code in Main
-
-Install the dependencies
-
-```bash
-npm install
-```
-
-Run the tests :heavy_check_mark:
-
-```bash
-$ npm test
-
- PASS  ./index.test.js
-  ✓ throws invalid number (3ms)
-  ✓ wait 500 ms (504ms)
-  ✓ test runs (95ms)
-...
-```
-
-## Change action.yml
-
-The action.yml defines the inputs and output for your action.
-
-Update the action.yml with your name, description, inputs and outputs for your action.
-
-See the [documentation](https://help.github.com/en/articles/metadata-syntax-for-github-actions)
-
-## Change the Code
-
-Most toolkit and CI/CD operations involve async operations so the action is run in an async function.
-
-```javascript
-const core = require('@actions/core');
-...
-
-async function run() {
-  try {
-      ...
-  }
-  catch (error) {
-    core.setFailed(error.message);
-  }
-}
-
-run()
-```
-
-See the [toolkit documentation](https://github.com/actions/toolkit/blob/master/README.md#packages) for the various packages.
-
-## Package for distribution
-
-GitHub Actions will run the entry point from the action.yml. Packaging assembles the code into one file that can be checked in to Git, enabling fast and reliable execution and preventing the need to check in node_modules.
-
-Actions are run from GitHub repos.  Packaging the action will create a packaged action in the dist folder.
-
-Run prepare
-
-```bash
-npm run prepare
-```
-
-Since the packaged index.js is run from the dist folder.
-
-```bash
-git add dist
-```
-
-## Create a release branch
-
-Users shouldn't consume the action from master since that would be latest code and actions can break compatibility between major versions.
-
-Checkin to the v1 release branch
-
-```bash
-git checkout -b v1
-git commit -a -m "v1 release"
-```
-
-```bash
-git push origin v1
-```
-
-Note: We recommend using the `--license` option for ncc, which will create a license file for all of the production node modules used in your project.
-
-Your action is now published! :rocket:
-
-See the [versioning documentation](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md)
+- 🚀 Built with TypeScript for type safety and better development experience
+- 📱 Upload APK/IPA files to InstallOnAir and/or LoadlyIO
+- 📢 Send success/failure notifications to Telegram
+- 🔄 Four operation modes: send-only, installonair-build, loadlyio-build, and all
+- ⚙️ Configurable parameters
+- 🏗️ Clean, modular architecture with services pattern
+- 🔒 Strong typing and error handling
+- 🌐 Multi-service upload support
 
 ## Usage
 
-You can now consume the action by referencing the v1 branch
-
+### InstallOnAir Build Mode (Upload + Notify)
 ```yaml
-uses: actions/javascript-action@v1
-with:
-  milliseconds: 1000
+- name: Upload to InstallOnAir and Notify
+  uses: ./
+  with:
+    telegramToken: ${{ secrets.TELEGRAM_TOKEN }}
+    telegramUid: ${{ secrets.TELEGRAM_CHAT_ID }}
+    messageTitle: "InstallOnAir Build"
+    installonairUserId: "74613"
+    filePath: "./app.apk"
+    method: "installonair-build"
 ```
 
-See the [actions tab](https://github.com/actions/javascript-action/actions) for runs of this action! :rocket:
+### LoadlyIO Build Mode (Upload + Notify)
+```yaml
+- name: Upload to LoadlyIO and Notify
+  uses: ./
+  with:
+    telegramToken: ${{ secrets.TELEGRAM_TOKEN }}
+    telegramUid: ${{ secrets.TELEGRAM_CHAT_ID }}
+    messageTitle: "LoadlyIO Build"
+    filePath: "./app.apk"
+    method: "loadlyio-build"
+```
+
+### All Services Mode (Upload to Both + Notify)
+```yaml
+- name: Upload to All Services
+  uses: ./
+  with:
+    telegramToken: ${{ secrets.TELEGRAM_TOKEN }}
+    telegramUid: ${{ secrets.TELEGRAM_CHAT_ID }}
+    messageTitle: "Multi-Service Build"
+    installonairUserId: "74613"
+    filePath: "./app.apk"
+    method: "all"
+```
+
+### Send Only Mode (Telegram Notification Only)
+```yaml
+- name: Send Build Notification
+  uses: ./
+  with:
+    telegramToken: ${{ secrets.TELEGRAM_TOKEN }}
+    telegramUid: ${{ secrets.TELEGRAM_CHAT_ID }}
+    messageTitle: "Build Ready"
+    filePath: "./app.apk"
+    method: "send-only"
+```
+
+## Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `telegramToken` | No* | - | Telegram bot token for notifications |
+| `telegramUid` | No* | - | Telegram chat ID for notifications |
+| `messageTitle` | No | "App Build" | Title for notifications |
+| `installonairUserId` | No | "74613" | InstallOnAir user ID |
+| `filePath` | **Yes** | - | Path to the file to upload (APK/IPA) |
+| `method` | **Yes** | "installonair-build" | Action method: "send-only" \| "installonair-build" \| "loadlyio-build" \| "all" |
+
+*Required for `send-only` method, optional for other methods
+
+## Operation Modes
+
+### 1. `send-only`
+- Only sends Telegram notification about the build
+- Requires Telegram credentials
+- Does not upload to any service
+- Perfect for CI/CD notifications
+
+### 2. `installonair-build` 
+- Uploads file to InstallOnAir
+- Sends Telegram notification with download link (if credentials provided)
+- InstallOnAir integration workflow
+
+### 3. `loadlyio-build`
+- Uploads file to LoadlyIO
+- Sends Telegram notification with download link (if credentials provided)
+- LoadlyIO integration workflow
+
+### 4. `all`
+- Uploads file to both InstallOnAir and LoadlyIO
+- Sends comprehensive Telegram notification with results from both services
+- Multi-service upload with detailed status report
+- Continues even if one service fails
+
+## Services Integration
+
+### InstallOnAir
+- Endpoint: `https://fupload.installonair.com/ipafile`
+- Supports APK and IPA files
+- Requires user ID and CSRF token
+- Provides download link and expiry date
+
+### LoadlyIO
+- Endpoint: `https://api.loadly.io/apiv2/app/upload`
+- API Key: Built-in (configurable in service)
+- Supports APK and IPA files
+- Provides app ID and download URL
+
+## Outputs
+
+| Output | Description |
+|--------|-------------|
+| `output` | JSON object containing result details, status code, and response data |
+
+## Architecture
+
+### Services
+- **TelegramService**: Handles Telegram notifications with type safety
+- **InstallOnAirService**: Manages InstallOnAir interactions with proper error handling
+- **LoadlyIOService**: Manages LoadlyIO API interactions
+- **UploadService**: Handles file upload operations with FormData
+
+### Utils
+- **ActionConfig**: Manages GitHub Actions input configuration with validation
+- **helpers**: Common utility functions with TypeScript support
+
+### Types
+- **Comprehensive type definitions** for all data structures
+- **ActionMethod type**: Ensures type-safe method selection ("send-only" | "installonair-build" | "loadlyio-build" | "all")
+- **Service-specific interfaces**: InstallOnAirUploadResult, LoadlyIOUploadResult
+- **Custom declaration files** for third-party modules
+- **Proper error typing** throughout the application
+
+## Development
+
+### Prerequisites
+- Node.js 16+
+- TypeScript knowledge
+
+### Setup
+```bash
+# Install dependencies
+npm install
+
+# Build TypeScript
+npm run build
+
+# Run linting
+npm run lint
+
+# Build for distribution
+npm run prepare
+
+# Run tests
+npm test
+
+# Development mode
+npm run dev
+```
+
+## Project Structure
+
+```
+├── index.ts                    # Main entry point
+├── src/
+│   ├── services/              # Business logic services
+│   │   ├── telegramService.ts
+│   │   ├── installOnAirService.ts
+│   │   ├── loadlyIOService.ts
+│   │   └── uploadService.ts
+│   ├── types/                 # Type definitions
+│   │   ├── index.ts
+│   │   └── hd-html-parser.d.ts
+│   └── utils/                 # Utility functions
+│       ├── config.ts
+│       └── helpers.ts
+├── dist/                      # Compiled JavaScript (generated)
+├── tsconfig.json             # TypeScript configuration
+├── action.yml               # GitHub Action metadata
+└── package.json            # Dependencies and scripts
+```
+
+## License
+
+MIT
